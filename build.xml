@@ -1,0 +1,297 @@
+<!-- ======================================================================
+description: main build file for pentaho  . .                                                    
+====================================================================== -->
+<project name="pentaho-build" default="all" >
+	<description>Pentaho BI Platform build helper..</description>
+
+	<fail message="FATAL: 'project' property not set. Please provide it the ant command, eg: ant -Dproject=myproject -Denv=dev" unless="project"/>
+	<condition property="config.properties" value="build-${env}.properties" else="build.properties">
+		<isset property="env"/>
+	</condition>
+
+	<property name="config.properties.path" value="project-${project}/config/${config.properties}"/>
+	<property name="config.properties.default.path" value="project-${project}/config/build.properties"/>
+
+	<available file="project-${project}/config/delete_list.xml" type="file" property="delete_list.exists"/>
+	<fail message="FATAL: project-${project}/config/delete_list.xml file not found." unless="delete_list.exists"/>
+	<xmlproperty file="project-${project}/config/delete_list.xml" collapseAttributes="true"/>
+	
+	<property name="root.path" location="." relative="false"/>
+	
+	<property name="solution.path" value="${root.path}/project-${project}/pentaho-solutions"/>
+	
+	<available file="${config.properties.path}" type="file" property="config.properties.exists"/>
+	<fail message="FATAL: Configuration file not found at ${config.properties.path}" unless="config.properties.exists"/>
+
+	<property file="${config.properties.path}"/>
+	<property file="${config.properties.default.path}"/>
+
+	<property name="build.logpath" location="${root.path}/logs/${project}-${env}.log"/>
+	<record name="${build.logpath}"/>
+
+	<tstamp>
+       		<format property="current.time" pattern="dd/MM/yyyy HH(:mm:ss.SSS)" />
+    	</tstamp>
+	
+	<!-- Copy samples? -->
+	<condition property="copy.samples">
+		<equals arg1="true" arg2="${copy.pentaho.samples}"/>
+	</condition>
+
+	<!-- Deploy conditions -->
+	<condition property="deploy.mode.rsync">
+		<equals arg1="rsync" arg2="${deploy.mode}"/>
+	</condition>
+
+	<target name="about">
+		<echo>--------------------------------------------------------------</echo>
+		<echo>--------------------------------------------------------------</echo>
+		<echo>------     CBF*L - Community Build Framework* Light    -------</echo>
+		<echo>------                 Version: 1.1                    -------</echo>
+		<echo>------ Author: Pedro Alves (pedro.alves@webdetails.pt) -------</echo>
+		<echo>------ Adapted: Kleyson Rios (kleysonr@yahoo.com.br)   -------</echo>
+		<echo>--------------------------------------------------------------</echo>
+		<echo>--------------------------------------------------------------</echo>
+		<echo></echo>
+		<echo>                         SETTINGS:                            </echo>
+		<echo></echo>
+		<echo>   Project:		${project}</echo>
+		<echo>   Environment:	${config.properties}</echo>
+		<echo>   Config File:	${config.properties.path}</echo>
+		<echo> </echo>
+		<echo>   OS Name:		${os.name}</echo>
+		<echo>   OS Version:	${os.version}</echo>
+		<echo>   OS Arch:		${os.arch}</echo>
+		<echo>--------------------------------------------------------------</echo>
+		<echo>--------------------------------------------------------------</echo>
+	</target>
+
+	<target name="init" depends="about">
+		<echo>Building project ${project} - ${current.time}</echo>
+	</target>
+
+	<target name="list" description="List build files of a project">
+		<exec executable="/usr/bin/ls" os="Linux,Mac OS,Mac OS X,Solaris,SunOS,MPE/iX,HP-UX,AIX,FreeBSD,Irix,Digital Unix,NetWare 4.11,OSF1,OpenVMS">
+			<arg line="-1 ${root.path}/project-${project}/config"/>
+		</exec>
+	</target>
+	
+	<target name="all" description="Apply the patches and runs the solution" depends="apply-patch,run" />
+	
+	<target name="apply-patch" depends="init,dist-clean,copy-samples" description="Apply the patches">
+		<!-- apply Copy dir -->
+		<echo>Copying files</echo>
+		<copy todir="${target.dist}" failonerror="true" verbose="false" overwrite="false">
+			<fileset dir="${pentaho.dir}">
+				<exclude name="biserver-ce/pentaho-solutions/steel-wheels/**"/>
+				<exclude name="biserver-ce/pentaho-solutions/bi-developers/**"/>
+			</fileset>
+		</copy>
+		
+		<!-- Delete directories and files before apply patches -->
+		<antcall target="delete-list"/>
+		
+		<!-- apply patches -->
+		<echo>Applying general patches</echo>
+		<copy todir="${target.dist}" failonerror="true" verbose="false" overwrite="true" filtering="true">
+			<fileset dir="project-${project}/patches/">
+				<include name="**/*.java"/>
+				<include name="**/*.xml"/>
+				<include name="**/*.conf"/>
+				<include name="**/*.txt"/>
+				<include name="**/*.ktr"/>
+				<include name="**/*.kjb"/>
+				<include name="**/*.js"/>
+				<include name="**/*.properties"/>
+				<include name="**/*.sh"/>
+				<include name="**/*.bat"/>
+			</fileset>
+			<filterset>
+				<!-- Unlike properties, filters are overwritten, so we invert the order of the files -->
+				<filtersfile file="${config.properties.default.path}"/>
+				<filtersfile file="${config.properties.path}"/>
+				<filter token="SOLUTION.PATH" value="${solution.path}"/>
+				<filter token="BUILD.VERSION" value="${current.time}"/>
+			</filterset>
+		</copy>
+		<copy todir="${target.dist}" failonerror="true" verbose="false" overwrite="true">
+			<fileset dir="project-${project}/patches/">
+				<exclude name="**/*.java"/>
+				<exclude name="**/*.xml"/>
+				<exclude name="**/*.conf"/>
+				<exclude name="**/*.txt"/>
+				<exclude name="**/*.ktr"/>
+				<exclude name="**/*.kjb"/>
+				<exclude name="**/*.js"/>
+				<exclude name="**/*.properties"/>
+				<exclude name="**/*.sh"/>
+				<exclude name="**/*.bat"/>
+			</fileset>
+		</copy>
+		<echo>Applying specifics patches to build-${env}</echo>
+		<condition property="privPathExist">
+			<available file="project-${project}/patches-private/${env}" type="dir"/>
+		</condition>
+		<copy todir="${target.dist}" failonerror="false" verbose="false" overwrite="true" filtering="true">
+			<fileset dir="project-${project}/patches-private/${env}/">
+				<include name="**/*.java"/>
+				<include name="**/*.xml"/>
+				<include name="**/*.conf"/>
+				<include name="**/*.txt"/>
+				<include name="**/*.ktr"/>
+				<include name="**/*.kjb"/>
+				<include name="**/*.js"/>
+				<include name="**/*.properties"/>
+				<include name="**/*.sh"/>
+				<include name="**/*.bat"/>
+			</fileset>
+			<filterset>
+				<!-- Unlike properties, filters are overwritten, so we invert the order of the files -->
+				<filtersfile file="${config.properties.default.path}"/>
+				<filtersfile file="${config.properties.path}"/>
+				<filter token="SOLUTION.PATH" value="${solution.path}"/>
+				<filter token="BUILD.VERSION" value="${current.time}"/>
+			</filterset>
+		</copy>
+		<copy todir="${target.dist}" failonerror="false" verbose="false" overwrite="true">
+			<fileset dir="project-${project}/patches-private/${env}/">
+				<exclude name="**/*.java"/>
+				<exclude name="**/*.xml"/>
+				<exclude name="**/*.conf"/>
+				<exclude name="**/*.txt"/>
+				<exclude name="**/*.ktr"/>
+				<exclude name="**/*.kjb"/>
+				<exclude name="**/*.js"/>
+				<exclude name="**/*.properties"/>
+				<exclude name="**/*.sh"/>
+				<exclude name="**/*.bat"/>
+			</fileset>
+		</copy>
+		<chmod dir="${target.dist}" perm="u+x">
+			<include name="**/*.sh"/>
+		</chmod>
+		<move todir="project-${project}/pentaho-solutions">
+			<fileset dir="${target.dist}/biserver-ce/pentaho-solutions"/>
+		</move>
+		<copy todir="project-${project}/pentaho-solutions">
+			<fileset dir="${target.dist}/">
+				<include name="BUILD_VERSION.txt"/>
+			</fileset>
+		</copy>
+	</target>
+	
+	<target name="copy-samples" if="copy.samples">
+		<echo>Copying samples</echo>
+		<copy todir="${target.dist}" failonerror="true" verbose="false">
+			<fileset dir="${pentaho.dir}">
+				<include name="biserver-ce/pentaho-solutions/steel-wheels/**"/>
+				<include name="biserver-ce/pentaho-solutions/bi-developers/**"/>
+			</fileset>
+		</copy>
+	</target>
+	
+	<target name="dist-clean" description="Deletes the target preconfigured" >
+		<delete dir="${target.dist}" failonerror="false"/>
+	</target>
+	
+	<target name="clean-solution" description="Deletes the project's pentaho-solutions" >
+		<delete dir="project-${project}/pentaho-solutions" failonerror="false"/>
+	</target>
+	
+	<target name="delete-list">
+		<property name="ant-contrib.jar" location="lib/ant-contrib-0.6.jar"/>
+		<taskdef resource="net/sf/antcontrib/antcontrib.properties" classpath="${ant-contrib.jar}"/>
+		<echo>Deleting Directories / Files</echo>
+		<foreach list="${List.Dirs.Dir.path}" target="delete-dirs" param="var" delimiter=","/>
+		<foreach list="${List.Files.File.path}" target="delete-files" param="var" delimiter=","/>
+	</target>
+
+	<target name="delete-dirs">
+		<delete dir="${target.dist}/${var}" />
+	</target>
+
+	<target name="delete-files">
+		<delete file="${target.dist}/${var}" />
+	</target>
+	
+	<target name="run" description="Runs the solution" >
+		<!-- Linux and Mac -->
+		<exec executable="${target.dist}/biserver-ce/start-pentaho.sh" os="Linux,Mac OS,Mac OS X,Solaris,SunOS,MPE/iX,HP-UX,AIX,FreeBSD,Irix,Digital Unix,NetWare 4.11,OSF1,OpenVMS">
+			<arg line="run"/>
+		</exec>
+
+		<exec executable="/usr/bin/tail" os="Linux,Mac OS,Mac OS X,Solaris,SunOS,MPE/iX,HP-UX,AIX,FreeBSD,Irix,Digital Unix,NetWare 4.11,OSF1,OpenVMS">
+			<arg line="-f ${target.dist}/biserver-ce/tomcat/logs/catalina.out"/>
+		</exec>
+
+		<!-- Windows -->
+		<exec dir="${target.dist}/biserver-ce/" executable="cmd" os="Windows 95,Windows 98,Windows Me,Windows NT,Windows XP,Windows 2003,Windows CE,Windows Vista,Windows 7">
+			<arg line="/c start-pentaho.bat"/>
+		</exec>
+	</target>
+	
+	<target name="stop" description="Stops the solution" >
+		<!-- Linux and Mac -->
+		<exec executable="${target.dist}/biserver-ce/stop-pentaho.sh" os="Linux,Mac OS,Mac OS X,Solaris,SunOS,MPE/iX,HP-UX,AIX,FreeBSD,Irix,Digital Unix,NetWare 4.11,OSF1,OpenVMS">
+			<arg line="run"/>
+		</exec>
+
+		<exec executable="/usr/bin/tail" os="Linux,Mac OS,Mac OS X,Solaris,SunOS,MPE/iX,HP-UX,AIX,FreeBSD,Irix,Digital Unix,NetWare 4.11,OSF1,OpenVMS">
+			<arg line="-f ${target.dist}/biserver-ce/tomcat/logs/catalina.out"/>
+		</exec>
+
+		<!-- Windows -->
+		<exec dir="${target.dist}/biserver-ce/" executable="cmd" os="Windows 95,Windows 98,Windows Me,Windows NT,Windows XP,Windows 2003,Windows CE,Windows Vista,Windows 7">
+			<arg line="/c stop-pentaho.bat"/>
+		</exec>
+	</target>
+
+	<target name="zip" description="ZIP the solution">
+		<delete file="${zip.dist}/build-${env}.zip" />
+		<replace file="${target.dist}/biserver-ce/tomcat/webapps/pentaho/WEB-INF/web.xml" token="${solution.path}" value=""/>
+		<zip destfile="${zip.dist}/build-${project}${env}.zip">
+			<fileset dir="${target.dist}/"/>
+			<zipfileset dir="project-${project}/pentaho-solutions" prefix="biserver-ce/pentaho-solutions"/>
+		</zip>	
+		<antcall target="restore-web-xml"/>
+	</target>
+	
+	<!-- Deploy targets -->
+
+	<target name="deploy-all" description="Apply patches and deploys both the solution and the server to the specified destinations" depends="deploy-server,deploy-solution"/>
+		
+	<target name="deploy-server" description="Apply patches and deploys the entire server to the specified destination" depends="apply-patch,deploy-server-rsync,restore-web-xml"/>
+
+	<target name="deploy-server-rsync" if="deploy.mode.rsync">
+			<fail message="FATAL: Server destination directory not specified (deploy.dest.server)" unless="deploy.dest.server"/>
+			<replace file="${target.dist}/biserver-ce/tomcat/webapps/pentaho/WEB-INF/web.xml" token="${solution.path}" value=""/>
+			<exec executable="rsync">
+					<arg line="${deploy.args} ${target.dist}/ ${deploy.dest.server}" />
+			</exec>
+	</target>
+
+	<target name="deploy-solution" description="Apply patches and deploys the solution to the specified destination" depends="apply-patch,deploy-solution-rsync" />
+
+	<target name="deploy-solution-rsync" if="deploy.mode.rsync">
+			<fail message="FATAL: Solution destination directory not specified (deploy.dest.server)" unless="deploy.dest.server"/>
+			<exec executable="rsync">
+					<arg line="${deploy.args} ${solution.path} ${deploy.dest.server}/biserver-ce" />
+			</exec>
+	</target>
+
+	<target name="restore-web-xml">
+		<echo>Restore web.xml for local run</echo>
+		<copy todir="${target.dist}/biserver-ce/tomcat/webapps/pentaho/WEB-INF" failonerror="true" verbose="false" overwrite="true" filtering="true">
+			<fileset dir="project-${project}/patches/biserver-ce/tomcat/webapps/pentaho/WEB-INF/">
+				<include name="web.xml"/>
+			</fileset>
+			<filterset>
+				<!-- Unlike properties, filters are overwritten, so we invert the order of the files -->
+				<filtersfile file="${config.properties.default.path}"/>
+				<filtersfile file="${config.properties.path}"/>
+				<filter token="SOLUTION.PATH" value="${solution.path}"/>
+			</filterset>
+		</copy>
+	</target>
+</project>
+

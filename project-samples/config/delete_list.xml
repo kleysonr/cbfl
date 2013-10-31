@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<List>
+
+  <!-- Directory list to be delete -->
+  <Dirs>
+  
+    <Dir>
+      <path>biserver-ce/pentaho-solutions/system/pentaho-cdf</path>
+    </Dir>
+    
+  </Dirs>
+
+  <!-- File list to be delete -->
+  <Files>
+  
+    <File>
+      <path>biserver-ce/tomcat/webapps/pentaho/WEB-INF/lib/mondrian-3.5.0.jar</path>
+    </File>
+    
+  </Files>
+
+</List>
