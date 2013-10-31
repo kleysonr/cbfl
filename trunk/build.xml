@@ -194,7 +194,7 @@ description: main build file for pentaho  . .
 		<delete dir="${target.dist}" failonerror="false"/>
 	</target>
 	
-	<target name="clean-solution" description="Deletes the project's pentaho-solutions" >
+	<target name="clean-solution" description="Deletes the pentaho-solutions of the project" >
 		<delete dir="project-${project}/pentaho-solutions" failonerror="false"/>
 	</target>
 	
