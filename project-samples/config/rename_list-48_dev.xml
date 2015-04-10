@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<List>
+
+  <!-- 
+  	Entry list to be renamed (applied only when creating zip file)
+  	Root directory = biserver-ce/
+  -->
+  <Entries>
+  
+    <Entry>
+      <path>pentaho-solutions/system/olap/datasources.xml</path>
+    </Entry>
+
+  </Entries>
+
+</List>

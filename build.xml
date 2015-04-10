@@ -11,10 +11,6 @@ description: main build file for pentaho  . .
 
 	<property name="config.properties.path" value="project-${project}/config/${config.properties}"/>
 	<property name="config.properties.default.path" value="project-${project}/config/build.properties"/>
-
-	<available file="project-${project}/config/delete_list.xml" type="file" property="delete_list.exists"/>
-	<fail message="FATAL: project-${project}/config/delete_list.xml file not found." unless="delete_list.exists"/>
-	<xmlproperty file="project-${project}/config/delete_list.xml" collapseAttributes="true"/>
 	
 	<property name="root.path" location="." relative="false"/>
 	
@@ -31,12 +27,17 @@ description: main build file for pentaho  . .
 
 	<tstamp>
        		<format property="current.time" pattern="dd/MM/yyyy HH(:mm:ss.SSS)" />
-    	</tstamp>
+    </tstamp>
 	
 	<!-- Copy samples? -->
 	<condition property="copy.samples">
 		<equals arg1="true" arg2="${copy.pentaho.samples}"/>
 	</condition>
+
+    <!-- Set sample catalogs if Copy Samples = true -->
+    <condition property="set.sample.catalogs" value="${sample.catalogs}" else="">
+            <equals arg1="true" arg2="${copy.pentaho.samples}"/>
+    </condition>
 
 	<!-- Deploy conditions -->
 	<condition property="deploy.mode.rsync">
@@ -47,7 +48,7 @@ description: main build file for pentaho  . .
 		<echo>--------------------------------------------------------------</echo>
 		<echo>--------------------------------------------------------------</echo>
 		<echo>------     CBF*L - Community Build Framework* Light    -------</echo>
-		<echo>------                 Version: 1.1                    -------</echo>
+		<echo>------                 Version: 1.2                    -------</echo>
 		<echo>------ Author: Pedro Alves (pedro.alves@webdetails.pt) -------</echo>
 		<echo>------ Adapted: Kleyson Rios (kleysonr@yahoo.com.br)   -------</echo>
 		<echo>--------------------------------------------------------------</echo>
@@ -71,7 +72,7 @@ description: main build file for pentaho  . .
 	</target>
 
 	<target name="list" description="List build files of a project">
-		<exec executable="/usr/bin/ls" os="Linux,Mac OS,Mac OS X,Solaris,SunOS,MPE/iX,HP-UX,AIX,FreeBSD,Irix,Digital Unix,NetWare 4.11,OSF1,OpenVMS">
+		<exec executable="/bin/ls" os="Linux,Mac OS,Mac OS X,Solaris,SunOS,MPE/iX,HP-UX,AIX,FreeBSD,Irix,Digital Unix,NetWare 4.11,OSF1,OpenVMS">
 			<arg line="-1 ${root.path}/project-${project}/config"/>
 		</exec>
 	</target>
@@ -112,6 +113,7 @@ description: main build file for pentaho  . .
 				<filtersfile file="${config.properties.path}"/>
 				<filter token="SOLUTION.PATH" value="${solution.path}"/>
 				<filter token="BUILD.VERSION" value="${current.time}"/>
+				<filter token="SAMPLE.CATALOGS" value="${set.sample.catalogs}"/>
 			</filterset>
 		</copy>
 		<copy todir="${target.dist}" failonerror="true" verbose="false" overwrite="true">
@@ -194,11 +196,15 @@ description: main build file for pentaho  . .
 		<delete dir="${target.dist}" failonerror="false"/>
 	</target>
 	
-	<target name="clean-solution" description="Deletes the pentaho-solutions of the project" >
+	<target name="clean-solution" description="Deletes the project's pentaho-solutions" >
 		<delete dir="project-${project}/pentaho-solutions" failonerror="false"/>
 	</target>
 	
 	<target name="delete-list">
+		<available file="project-${project}/config/delete_list.xml" type="file" property="delete_list.exists"/>
+		<fail message="FATAL: project-${project}/config/delete_list.xml file not found." unless="delete_list.exists"/>
+		<xmlproperty file="project-${project}/config/delete_list.xml" collapseAttributes="true"/>
+
 		<property name="ant-contrib.jar" location="lib/ant-contrib-0.6.jar"/>
 		<taskdef resource="net/sf/antcontrib/antcontrib.properties" classpath="${ant-contrib.jar}"/>
 		<echo>Deleting Directories / Files</echo>
@@ -213,6 +219,42 @@ description: main build file for pentaho  . .
 	<target name="delete-files">
 		<delete file="${target.dist}/${var}" />
 	</target>
+
+	<target name="rename-list">
+		<property name="ant-contrib.jar" location="lib/ant-contrib-0.6.jar"/>
+		<taskdef resource="net/sf/antcontrib/antcontrib.properties" classpath="${ant-contrib.jar}"/>
+		<if>
+			<available file="project-${project}/config/rename_list-${env}.xml"/>
+			<then>
+				<xmlproperty file="project-${project}/config/rename_list-${env}.xml" collapseAttributes="true"/>
+				<echo>Renaming Directories / Files</echo>
+        			<foreach list="${List.Entries.Entry.path}" target="rename-entry" param="var" delimiter=","/>
+			</then>
+		</if>
+	</target>
+
+	<target name="rename-entry">
+		<property name="ant-contrib.jar" location="lib/ant-contrib-0.6.jar"/>
+		<taskdef resource="net/sf/antcontrib/antcontrib.properties" classpath="${ant-contrib.jar}"/>
+    		<tstamp>
+        		<format property="time.stamp" pattern="yyyyMMddHHmmssSSS"/>
+       		</tstamp>
+    		<if>
+        		<available file="project-${project}${file.separator}${var}"/>
+        		<then>
+				<echo>Renaming project-${project}${file.separator}${var}</echo>
+            			<move file="project-${project}${file.separator}${var}" tofile="project-${project}${file.separator}${var}.${time.stamp}"/>
+        		</then>
+    		</if>
+    		<if>
+        		<available file="${target.dist}${file.separator}biserver-ce${file.separator}${var}"/>
+        		<then>
+				<echo>Renaming ${target.dist}${file.separator}biserver-ce${file.separator}${var}</echo>
+            			<move file="${target.dist}${file.separator}biserver-ce${file.separator}${var}" tofile="${target.dist}${file.separator}biserver-ce${file.separator}${var}.${time.stamp}"/>
+        		</then>
+    		</if>
+    	</target>
+
 	
 	<target name="run" description="Runs the solution" >
 		<!-- Linux and Mac -->
@@ -249,6 +291,10 @@ description: main build file for pentaho  . .
 	<target name="zip" description="ZIP the solution">
 		<delete file="${zip.dist}/build-${env}.zip" />
 		<replace file="${target.dist}/biserver-ce/tomcat/webapps/pentaho/WEB-INF/web.xml" token="${solution.path}" value=""/>
+
+		<!-- Rename directories and files before create zip file -->
+		<antcall target="rename-list"/>
+
 		<zip destfile="${zip.dist}/build-${project}${env}.zip">
 			<fileset dir="${target.dist}/"/>
 			<zipfileset dir="project-${project}/pentaho-solutions" prefix="biserver-ce/pentaho-solutions"/>
