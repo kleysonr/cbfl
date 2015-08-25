@@ -106,6 +106,7 @@ description: main build file for pentaho  . .
 				<include name="**/*.properties"/>
 				<include name="**/*.sh"/>
 				<include name="**/*.bat"/>
+				<include name="**/*.pl"/>
 			</fileset>
 			<filterset>
 				<!-- Unlike properties, filters are overwritten, so we invert the order of the files -->
@@ -128,6 +129,7 @@ description: main build file for pentaho  . .
 				<exclude name="**/*.properties"/>
 				<exclude name="**/*.sh"/>
 				<exclude name="**/*.bat"/>
+				<exclude name="**/*.pl"/>
 			</fileset>
 		</copy>
 		<echo>Applying specifics patches to build-${env}</echo>
@@ -146,6 +148,7 @@ description: main build file for pentaho  . .
 				<include name="**/*.properties"/>
 				<include name="**/*.sh"/>
 				<include name="**/*.bat"/>
+				<include name="**/*.pl"/>
 			</fileset>
 			<filterset>
 				<!-- Unlike properties, filters are overwritten, so we invert the order of the files -->
@@ -167,10 +170,12 @@ description: main build file for pentaho  . .
 				<exclude name="**/*.properties"/>
 				<exclude name="**/*.sh"/>
 				<exclude name="**/*.bat"/>
+				<exclude name="**/*.pl"/>
 			</fileset>
 		</copy>
 		<chmod dir="${target.dist}" perm="u+x">
 			<include name="**/*.sh"/>
+			<include name="**/*.pl"/>
 		</chmod>
 		<move todir="project-${project}/pentaho-solutions">
 			<fileset dir="${target.dist}/biserver-ce/pentaho-solutions"/>
